@@ -22,7 +22,7 @@ let isTerritorialActive = true;
 let isUsableActive = true;
 let isPortActive = true;
 
-// 경로 데이터
+// 경로 데이터 [수정됨: 군산항 경로 추가]
 const ferryRoutes = [
     { island: "팔미도", port: "인천항 연안부두" },
     { island: "차귀도", port: "자구내포구" },
@@ -43,7 +43,10 @@ const ferryRoutes = [
     { island: "지귀도", port: "위미항" }, 
     { island: "형제도(형제섬)", port: "화순항" }, 
     { island: "제2형제도", port: "화순항" }, 
-    
+
+    { island: "십이동파도2", port: "군산항" },
+    { island: "횡경도", port: "군산항" },
+    { island: "소횡경도", port: "군산항" }
 ];
 
 let islandCoords = {}; 
@@ -140,9 +143,10 @@ function checkIsTerritorial(island) {
     return requiredNames.includes(name);
 }
 
+// [수정] 이용가능 필터에 '미지정' 추가
 function checkIsUsable(island) {
     const type = island.Column21 || '';
-    return type.includes('이용가능') || type.includes('개발가능') || type.includes('준보전');
+    return type.includes('이용가능') || type.includes('개발가능') || type.includes('준보전') || type.includes('미지정');
 }
 
 function createTooltipContent(island) {
@@ -617,7 +621,6 @@ function updateSigunguSelect(islands) {
     }
 
     sel.style.display = 'block'; 
-    // 개수 포함하여 옵션 렌더링
     sel.innerHTML = '<option value="">전체</option>' + 
         list.map(s => `<option value="${s.short}">${s.full} (${s.count})</option>`).join('');
 }
@@ -750,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rSel = document.getElementById('regionSelect');
     const sSel = document.getElementById('sigunguSelect');
 
-    // [수정] 지역 선택 변경 시, 현재 필터 상태를 반영하여 시군구 목록 갱신
+    // 지역 선택 변경 시
     rSel.onchange = function() {
         let islands = getIslandsByRegion(this.value);
         
@@ -793,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeTerritorialList.addEventListener('click', () => { territorialListBox.classList.add('hidden'); });
     closeTerritorialInfo.addEventListener('click', () => { territorialInfoPanel.classList.add('hidden'); });
 
-    // [수정] 이용가능 버튼 클릭 시에도 시군구 목록 갱신 트리거
+    // 이용가능 버튼 클릭 시
     usableBtn.addEventListener('click', function() {
         isUsableActive = !isUsableActive;
         
@@ -804,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loadIslands(); 
         
-        // 현재 선택된 지역의 섬 목록을 다시 가져와서 시군구 셀렉트박스 갱신
+        // 시군구 목록도 필터 상태에 맞춰 갱신
         const regionVal = rSel.value;
         const sigunguVal = sSel.value;
         
