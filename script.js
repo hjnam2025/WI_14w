@@ -22,7 +22,7 @@ let isTerritorialActive = true;
 let isUsableActive = true;
 let isPortActive = true;
 
-// 경로 데이터 [수정됨: 군산항 경로 추가]
+// 경로 데이터
 const ferryRoutes = [
     { island: "팔미도", port: "인천항 연안부두" },
     { island: "차귀도", port: "자구내포구" },
@@ -44,7 +44,7 @@ const ferryRoutes = [
     { island: "형제도(형제섬)", port: "화순항" }, 
     { island: "제2형제도", port: "화순항" }, 
 
-    { island: "십이동파도2", port: "군산항" },
+    { island: "십이동파도3(소금도)", port: "군산항" },
     { island: "횡경도", port: "군산항" },
     { island: "소횡경도", port: "군산항" }
 ];
@@ -143,10 +143,10 @@ function checkIsTerritorial(island) {
     return requiredNames.includes(name);
 }
 
-// [수정] 이용가능 필터에 '미지정' 추가
+// [수정] '미지정' 제거 (원복)
 function checkIsUsable(island) {
     const type = island.Column21 || '';
-    return type.includes('이용가능') || type.includes('개발가능') || type.includes('준보전') || type.includes('미지정');
+    return type.includes('이용가능') || type.includes('개발가능') || type.includes('준보전');
 }
 
 function createTooltipContent(island) {
@@ -180,7 +180,6 @@ function createDetailContent(island) {
     const searchQuery = encodeURIComponent(`${sigungu} ${name} 배편`);
     const searchUrl = `https://search.naver.com/search.naver?query=${searchQuery}`;
 
-    // sticky-info-header: flex justify-content space-between 적용
     let html = `
         <div class="sticky-info-header">
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -312,13 +311,14 @@ async function loadIslands() {
             const eupmyeondong = island.Column5 || "";
             const isJaeunHalmido = (iName === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
             
+            // [수정] 횡경도, 소횡경도 예외 추가
+            const isExceptionIsland = isJaeunHalmido || iName === "횡경도" || iName === "소횡경도";
+
             if (lat && lng) {
-                // 좌표 저장 로직
                 if (iName === "질마도") {
                     if (island.Column2 === "전남-완도-09-29") islandCoords[iName] = [lat, lng];
                 } 
                 else if (iName === "할미도") {
-                    // "할미도"라는 이름일 경우, 오직 자은면 할미도 좌표만 저장
                     if (isJaeunHalmido) islandCoords[iName] = [lat, lng];
                 } 
                 else {
@@ -327,14 +327,16 @@ async function loadIslands() {
             }
 
             if (lat && lng) {
-                if (isUsableActive && !isUsable) {
+                // [수정] 예외 섬들은 필터 무시하고 통과
+                if (isUsableActive && !isUsable && !isExceptionIsland) {
                     return; 
                 }
 
                 let iconHtml = blueIconHtml;
                 let targetList = normalMarkers; 
 
-                const treatAsUsable = isUsable && isUsableActive;
+                // [수정] 예외 섬들도 초록색 마커로 취급
+                const treatAsUsable = (isUsable && isUsableActive) || (isUsableActive && isExceptionIsland);
 
                 if (treatAsUsable) {
                     iconHtml = greenIconHtml;
@@ -641,7 +643,18 @@ function updateIslandList(regionName, sigungu = '') {
     const header = document.querySelector('.island-list-header h4'); let islands = getIslandsByRegion(regionName);
     const usableBtn = document.getElementById('usableToggleBtn'); const isUsableActive = usableBtn && usableBtn.classList.contains('active');
     
-    if (isUsableActive) islands = islands.filter(checkIsUsable);
+    // [수정] 예외 섬 포함 필터링
+    if (isUsableActive) {
+        islands = islands.filter(i => {
+            const name = i['무인도서 정보'];
+            const sigungu = i.Column4 || "";
+            const eupmyeondong = i.Column5 || "";
+            const isJaeunHalmido = (name === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
+            const isException = isJaeunHalmido || name === "횡경도" || name === "소횡경도";
+            
+            return checkIsUsable(i) || isException;
+        });
+    }
     
     if (sigungu) islands = islands.filter(i => i.Column4 === sigungu);
     currentIslandListItems = islands;
@@ -753,12 +766,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const rSel = document.getElementById('regionSelect');
     const sSel = document.getElementById('sigunguSelect');
 
-    // 지역 선택 변경 시
     rSel.onchange = function() {
         let islands = getIslandsByRegion(this.value);
         
         if (isUsableActive) {
-            islands = islands.filter(checkIsUsable);
+            // [수정] 예외 섬 로직 포함하여 시군구 목록 필터링
+            islands = islands.filter(i => {
+                const name = i['무인도서 정보'];
+                const sigungu = i.Column4 || "";
+                const eupmyeondong = i.Column5 || "";
+                const isJaeunHalmido = (name === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
+                const isException = isJaeunHalmido || name === "횡경도" || name === "소횡경도";
+                return checkIsUsable(i) || isException;
+            });
         }
 
         updateSigunguSelect(islands);
@@ -796,7 +816,6 @@ document.addEventListener('DOMContentLoaded', () => {
     closeTerritorialList.addEventListener('click', () => { territorialListBox.classList.add('hidden'); });
     closeTerritorialInfo.addEventListener('click', () => { territorialInfoPanel.classList.add('hidden'); });
 
-    // 이용가능 버튼 클릭 시
     usableBtn.addEventListener('click', function() {
         isUsableActive = !isUsableActive;
         
@@ -807,13 +826,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loadIslands(); 
         
-        // 시군구 목록도 필터 상태에 맞춰 갱신
         const regionVal = rSel.value;
         const sigunguVal = sSel.value;
         
         let islands = getIslandsByRegion(regionVal);
         if (isUsableActive) {
-            islands = islands.filter(checkIsUsable);
+            // [수정] 예외 섬 로직 포함하여 시군구 목록 필터링
+            islands = islands.filter(i => {
+                const name = i['무인도서 정보'];
+                const sigungu = i.Column4 || "";
+                const eupmyeondong = i.Column5 || "";
+                const isJaeunHalmido = (name === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
+                const isException = isJaeunHalmido || name === "횡경도" || name === "소횡경도";
+                return checkIsUsable(i) || isException;
+            });
         }
         updateSigunguSelect(islands);
 
