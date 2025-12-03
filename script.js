@@ -303,7 +303,7 @@ async function loadIslands() {
             const iName = island['무인도서 정보'];
             const isUsable = checkIsUsable(island);
 
-            // 자은면 할미도 여부 확인 (신안군 자은면)
+            // 자은면 할미도 여부 확인
             const sigungu = island.Column4 || "";
             const eupmyeondong = island.Column5 || "";
             const isJaeunHalmido = (iName === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
@@ -330,7 +330,6 @@ async function loadIslands() {
                 let iconHtml = blueIconHtml;
                 let targetList = normalMarkers; 
 
-                // 이용가능/개발가능/준보전 등 checkIsUsable이 true면 초록 마커
                 const treatAsUsable = isUsable && isUsableActive;
 
                 if (treatAsUsable) {
@@ -508,7 +507,6 @@ function updatePortListUI() {
 
     let html = '';
     allPorts.forEach(port => {
-        // 항구와 연결된 섬 목록 표시
         const dest = ferryRoutes.filter(r => r.port === port.이름).map(r => r.island).join(', ');
         const destHtml = dest ? `<div class="t-dest" style="color:#27ae60; font-size:0.85rem; margin-top:2px;">↳ 운항: ${dest}</div>` : '';
 
@@ -589,11 +587,10 @@ function getSigunguList(islands) {
     });
 }
 
-// [수정] 시군구 선택창에 개수 표시 기능 추가
 function updateSigunguSelect(islands) {
     const sel = document.getElementById('sigunguSelect'); 
     
-    // 개수를 세기 위한 Map
+    // 개수 세기용 맵
     const map = new Map();
     
     islands.forEach(i => {
@@ -620,6 +617,7 @@ function updateSigunguSelect(islands) {
     }
 
     sel.style.display = 'block'; 
+    // 개수 포함하여 옵션 렌더링
     sel.innerHTML = '<option value="">전체</option>' + 
         list.map(s => `<option value="${s.short}">${s.full} (${s.count})</option>`).join('');
 }
@@ -751,11 +749,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rSel = document.getElementById('regionSelect');
     const sSel = document.getElementById('sigunguSelect');
+
+    // [수정] 지역 선택 변경 시, 현재 필터 상태를 반영하여 시군구 목록 갱신
     rSel.onchange = function() {
-        const regionIslands = getIslandsByRegion(this.value);
-        updateSigunguSelect(regionIslands);
+        let islands = getIslandsByRegion(this.value);
+        
+        if (isUsableActive) {
+            islands = islands.filter(checkIsUsable);
+        }
+
+        updateSigunguSelect(islands);
         updateIslandList(this.value, '');
     };
+    
     sSel.onchange = function() { updateIslandList(rSel.value, this.value); };
     
     document.getElementById('closeDetailPanel').addEventListener('click', () => { document.getElementById('detailPanel').classList.add('hidden'); });
@@ -787,6 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeTerritorialList.addEventListener('click', () => { territorialListBox.classList.add('hidden'); });
     closeTerritorialInfo.addEventListener('click', () => { territorialInfoPanel.classList.add('hidden'); });
 
+    // [수정] 이용가능 버튼 클릭 시에도 시군구 목록 갱신 트리거
     usableBtn.addEventListener('click', function() {
         isUsableActive = !isUsableActive;
         
@@ -796,7 +803,18 @@ document.addEventListener('DOMContentLoaded', () => {
             this.classList.remove('active');
         }
         loadIslands(); 
-        updateIslandList(rSel.value, sSel.value);
+        
+        // 현재 선택된 지역의 섬 목록을 다시 가져와서 시군구 셀렉트박스 갱신
+        const regionVal = rSel.value;
+        const sigunguVal = sSel.value;
+        
+        let islands = getIslandsByRegion(regionVal);
+        if (isUsableActive) {
+            islands = islands.filter(checkIsUsable);
+        }
+        updateSigunguSelect(islands);
+
+        updateIslandList(regionVal, sigunguVal);
         updateViewportList();
     });
 
