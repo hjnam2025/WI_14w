@@ -309,22 +309,20 @@ async function loadIslands() {
             const isJaeunHalmido = (iName === "할미도" && sigungu.includes("신안") && eupmyeondong.includes("자은"));
             
             if (lat && lng) {
-                // [수정: 좌표 저장 로직 개선]
+                // 좌표 저장 로직
                 if (iName === "질마도") {
                     if (island.Column2 === "전남-완도-09-29") islandCoords[iName] = [lat, lng];
                 } 
                 else if (iName === "할미도") {
-                    // "할미도"라는 이름일 경우, 오직 자은면 할미도 좌표만 저장 (다른 할미도가 덮어쓰기 방지)
+                    // "할미도"라는 이름일 경우, 오직 자은면 할미도 좌표만 저장
                     if (isJaeunHalmido) islandCoords[iName] = [lat, lng];
                 } 
                 else {
-                    // 그 외 섬들은 그냥 저장
                     islandCoords[iName] = [lat, lng];
                 }
             }
 
             if (lat && lng) {
-                // [복구] 정상적인 필터링 로직
                 if (isUsableActive && !isUsable) {
                     return; 
                 }
@@ -368,7 +366,7 @@ async function loadIslands() {
                     isTargetIsland = false;
                 }
 
-                // [유지] 할미도 경로 타겟: 신안군 자은면만
+                // 할미도 경로 타겟: 신안군 자은면만
                 if (iName === "할미도" && !isJaeunHalmido) {
                     isTargetIsland = false;
                 }
@@ -510,7 +508,7 @@ function updatePortListUI() {
 
     let html = '';
     allPorts.forEach(port => {
-        // [추가] 항구와 연결된 섬 목록 표시
+        // 항구와 연결된 섬 목록 표시
         const dest = ferryRoutes.filter(r => r.port === port.이름).map(r => r.island).join(', ');
         const destHtml = dest ? `<div class="t-dest" style="color:#27ae60; font-size:0.85rem; margin-top:2px;">↳ 운항: ${dest}</div>` : '';
 
@@ -575,6 +573,7 @@ function highlightRegion(regionIslands) {
     } catch (e) { console.error(e); }
 }
 function clearRegionHighlight() { if (regionPolygon) { map.removeLayer(regionPolygon); regionPolygon = null; } }
+
 function getSigunguList(islands) {
     const map = new Map();
     islands.forEach(i => {
@@ -589,11 +588,42 @@ function getSigunguList(islands) {
         return a.short.localeCompare(b.short);
     });
 }
+
+// [수정] 시군구 선택창에 개수 표시 기능 추가
 function updateSigunguSelect(islands) {
-    const sel = document.getElementById('sigunguSelect'); const list = getSigunguList(islands);
-    if (!list.length) { sel.style.display = 'none'; sel.value = ''; return; }
-    sel.style.display = 'block'; sel.innerHTML = '<option value="">전체</option>' + list.map(s => `<option value="${s.short}">${s.full}</option>`).join('');
+    const sel = document.getElementById('sigunguSelect'); 
+    
+    // 개수를 세기 위한 Map
+    const map = new Map();
+    
+    islands.forEach(i => {
+        if (i.Column4) {
+            let full = i.Column4;
+            if ((i.Column3 || '').match(/(광역시|특별시)/)) full = `${i.Column3} ${i.Column4}`;
+            
+            if (!map.has(i.Column4)) {
+                map.set(i.Column4, { short: i.Column4, full: full, sido: i.Column3, count: 0 });
+            }
+            map.get(i.Column4).count++;
+        }
+    });
+
+    const list = Array.from(map.values()).sort((a, b) => {
+        if (a.sido !== b.sido) return a.sido.localeCompare(b.sido);
+        return a.short.localeCompare(b.short);
+    });
+
+    if (!list.length) { 
+        sel.style.display = 'none'; 
+        sel.value = ''; 
+        return; 
+    }
+
+    sel.style.display = 'block'; 
+    sel.innerHTML = '<option value="">전체</option>' + 
+        list.map(s => `<option value="${s.short}">${s.full} (${s.count})</option>`).join('');
 }
+
 function renderIslandList() {
     const list = document.getElementById('islandList');
     if (!list) return;
